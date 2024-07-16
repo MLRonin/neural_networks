@@ -131,3 +131,77 @@ assert feed_forward(network, [0,0])[-1][0] < 0.01
 assert feed_forward(network, [0,1])[-1][0] > 0.99
 assert feed_forward(network, [1,0])[-1][0] > 0.99
 assert feed_forward(network, [1,1])[-1][0] < 0.01
+
+# fizz buzz task
+def fizz_buzz_encode(x: int) -> list:
+    if x % 15 == 0:
+        return [0,0,0,1]
+    elif x % 5 == 0:
+        return [0,0,1,0]
+    elif x % 3 == 0:
+        return [0,1,0,0,]
+    else:
+        return [1,0,0,0]
+assert fizz_buzz_encode(2) == [1,0,0,0]
+assert fizz_buzz_encode(6) == [0,1,0,0]
+assert fizz_buzz_encode(10) == [0,0,1,0]
+assert fizz_buzz_encode(30) == [0,0,0,1]
+
+def binary_encode(x: int) -> list:
+    binary = []
+    for i in range(10):
+        binary.append(x % 2)
+        x = x // 2
+    return binary
+#                             1 2 3 4 5 6 7 8 9 10
+assert binary_encode(0) ==   [0,0,0,0,0,0,0,0,0,0]
+assert binary_encode(1) ==   [1,0,0,0,0,0,0,0,0,0]
+assert binary_encode(10) ==  [0,1,0,1,0,0,0,0,0,0]
+assert binary_encode(101) == [1,0,1,0,0,1,1,0,0,0]
+assert binary_encode(999) == [1,1,1,0,0,1,1,1,1,1]
+
+xs = [binary_encode(n) for n in range(101,1024)]
+ys = [fizz_buzz_encode(n) for n in range(101,1024)]
+
+NUM_HIDDEN = 25
+
+network = [
+    [[random.random() for _ in range(10+1)] for _ in range(NUM_HIDDEN)],
+    [[random.random() for _ in range(NUM_HIDDEN+1)] for _ in range(4)]
+]
+def sum_of_squares(l: list) -> float:
+    return dot(l,l)
+
+def substract(l1: list,l2: list) -> list:
+    return [x - y for x,y in zip(l1,l2)]
+
+def squared_distance(l1: list, l2: list) -> float:
+    return sum_of_squares(substract(l1,l2))
+
+learning_rate = 1.0
+with tqdm.trange(500) as t:
+    for epoch in t:
+        epoch_loss = 0
+        for x,y in zip(xs,ys):
+            predicted = feed_forward(network, x)[-1]
+            epoch_loss += squared_distance(predicted,y)
+            gradients = sqerror_gradients(network,x,y)
+            network = [[gradient_step(neuron, grad, -learning_rate) for neuron, grad in zip(layer, layer_grad)] for layer, layer_grad in zip(network,gradients)]
+        t.set_description(f'fizz buzz (loss: {epoch_loss:.2f})')
+
+def argmax(xs: list) -> int:
+    return max(range(len(xs)), key = lambda i: xs[i])
+
+assert argmax([0,-1]) == 0 # xs[0] == 0
+assert argmax([-1,0]) == 1 # xs[1] == 0
+assert argmax([-1,0,10,5,6,7,20]) == 6 # xs[6] == 20
+corrects = 0
+for i in range(1,101):
+    x = binary_encode(i)
+    predicted = argmax(feed_forward(network,x)[-1])
+    actual = argmax(fizz_buzz_encode(i))
+    labels = [str(i),'fizz','buzz','fizzbuzz']
+    print(i, labels[predicted], labels[actual])
+    if predicted == actual:
+        corrects += 1
+print(f'{corrects} / 100')
